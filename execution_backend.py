@@ -9,6 +9,7 @@ class Broker:
         self.signature = signature
         self.platform = platform
         self.api_url = api_url
+        self.fees = {}
 
     # Place order, return success as bool
     def order(self, symbol, amount, price):
@@ -37,7 +38,8 @@ class Broker:
                 return True
             else:
                 i = 0
-                while requests.get(self.api_url + (f"order?symbol={symbol}&orderId={exec.json()["clientOrderId"]}&timestamp={exec_time)}")).json()["status"] != "FILLED":
+                clientOrderId = exec.json()["clientOrderId"]
+                while requests.get(self.api_url + f"order?symbol={symbol}&orderId={clientOrderId}&timestamp={exec_time}").json()["status"] != "FILLED":
                     # Stop trying after one minute
                     if i == 60:
                         return False
@@ -95,9 +97,11 @@ class Broker:
                 return False
         return quantity, bias
 
+    # Get the trading fees for symbols in args
     def get_fees(self, *args):
-        # Binance API get fees for *args
-        fees = ""
+        fees = []
+        for arg in args:
+            fees.append(self.fees.get(arg))
         return fees
 
 

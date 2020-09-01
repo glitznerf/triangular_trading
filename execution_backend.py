@@ -69,6 +69,7 @@ class Broker:
                 return False
         return prices
 
+    # Get current order book buy/sell bias
     def get_bias(self, *args):
         quantity, bias = [], []
         for arg in args:
@@ -82,7 +83,10 @@ class Broker:
                 for ask in response.json()["asks"]:
                     quant_ask += float(ask[1])
                 quantity.append(quant_bid+quant_ask)
-                bias.append(quant_bid-quant_ask)
+                if quant_bid-quant_ask > 0:
+                    bias.append(quant_bid/quant_ask)
+                else:
+                    bias.append(-quant_bid/quant_ask)
             except HTTPError as http_err:
                 print("HTTPError: ", http_err)
                 return False

@@ -106,14 +106,34 @@ class Broker:
 
 # Executer runs the strategy
 class Executer:
-    def __init__(self):
-        pass
+    def __init__(self, params=[0,0],currencies_a=[], currencies_b=[], currencies_c=[]):
+        self.params = params
+        self.currency_pairs = []
+        for a in currencies_a:
+            for b in currencies_b:
+                for c in currencies_c:
+                    self.currency_pairs.append([a,b,c])
+        self.API = Broker("","")
 
     # Run triangular trading: scan for signal, execute trade
-    def run_triangular(self):
-        pass
+    def run_triangular(self, standard_amount=50, timeout=5):    # standard_amount in Euro, timeout in minutes
+        init_time = int(time.time()*1000)
+        # During runtime
+        while (int(time.time()*1000) < int(init_time + timeout*60000)):
+            # Loop over currency pairs
+            for c_pair in currency_pairs:
+                a, b, c = c_pair
+                prices = self.API.get_prices(a+b, b+c, c+a, "EUR"+b)
+                price = prices[0]*prices[1]*prices[2]
+                vol = self.API.get_bias(a+b, b+c, c+a)
+                fee_ = self.API.get_fees(a+b, b+c, c+a)
+                fee = 1/((1+fee_[0])*(1+fee_[1])*(1+fee_[2]))
+                risk = 1/(params[0]*abs(vol) + p[1] + 1)
 
-    # Notify of error
+                # Generate signal
+                indicator = price*fee*risk
+
+    # Notify of error, cancel trades/positions at risk
     def error_alert(self):
         pass
 

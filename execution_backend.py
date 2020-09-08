@@ -132,6 +132,26 @@ class Executer:
 
                 # Generate signal
                 indicator = price*fee*risk
+                if indicator > 1:
+                    net_profit = (price*fee-1)*100
+                    risk_factor = 1/risk
+                    print(f"Buy {a+b,b+c,c+a} for an expected net profit of {net_profit}% and a risk factor of {risk_factor}.")
+                    amount = standard_amount*prices[3]
+                    if self.API.order(a+b, amount, prices[0]):
+                        print(f"Order {a+b} executed!")
+                        if self.API.order(b+c, amount*prices[1], prices[1]):
+                            print(f"Order {b+c} executed!")
+                            if self.API.order(c+a, amount*prices[1]*prices[2], prices[2]):
+                                print(f"Order {c+a} executed! Triangular trade completed. \n\n")
+                            else:
+                                print(f"Order {c+a} NOT executed!")
+                                error_alert()
+                        else:
+                            print(f"Order {b+c} NOT executed!")
+                            error_alert()
+                    else:
+                        print(f"Order {a+c} NOT executed!")
+                        error_alert()
 
     # Notify of error, cancel trades/positions at risk
     def error_alert(self):

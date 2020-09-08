@@ -9,7 +9,7 @@ class Broker:
         self.signature = signature
         self.platform = platform
         self.api_url = api_url
-        self.fees = {}
+        self.fees = {}                  # Needs manual entering
 
     # Place order, return success as bool
     def order(self, symbol, amount, price):
@@ -104,6 +104,18 @@ class Broker:
             fees.append(self.fees.get(arg))
         return fees
 
+# Executer runs the strategy
+class Executer:
+    def __init__(self):
+        pass
+
+    # Run triangular trading: scan for signal, execute trade
+    def run_triangular(self):
+        pass
+
+    # Notify of error
+    def error_alert(self):
+        pass
 
 # Test
 broker = Broker("","")

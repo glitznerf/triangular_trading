@@ -58,11 +58,22 @@ class Broker:
 
 
     # Get orderbook information for symbol
+    def orderbook(self, symbol, limit=500):
+        response = requests.get(self.endpoint + "depth?symbol=" + symbol + "&limit=" + str(limit))
+        info = response.json()
+        if response.status_code == 200:
+            print("bids:",info["bids"])
+            print("asks:",info["asks"])
+        elif response.status_code == 400:
+            print(info["msg"])
+        else:
+            print(response.status_code, response.text)
 
 
 # Tests:
 B = Broker()
 B.ping()
 B.get_price("ETHBTC")
-B.get_price()
+#B.get_price()
 B.get_avg_price("ETHBTC")
+B.orderbook("ETHBTC")

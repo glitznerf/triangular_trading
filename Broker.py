@@ -11,7 +11,7 @@ class Broker:
 
 
     # Ping server to test connectivity.
-    # Returns true if successful, false if unsuccessful
+    # Returns True if successful, False if unsuccessful
     def ping(self):
         try:
             test = requests.get(self.endpoint + "ping")
@@ -25,7 +25,7 @@ class Broker:
 
     # Get latest price for symbol, if empty symbol, returns prices for all symbols
     # Argument: Ticker symbol (str) (optional)
-    # Returns (true, price(s)) or (false, error_message)
+    # Returns (True, price(s)) or (False, error_message)
     def get_price(self, symbol=""):
         response = 0
 
@@ -44,7 +44,7 @@ class Broker:
 
     # Get current average price for symbol
     # Argument: Ticker symbol (str)
-    # Returns (true, price) or (false, error_message)
+    # Returns (True, price) or (False, error_message)
     def get_avg_price(self, symbol):
         response = requests.get(self.endpoint + "avgPrice?symbol=" + symbol)
         if response.status_code == 200:
@@ -57,7 +57,7 @@ class Broker:
 
     # Get orderbook information for symbol
     # Arguments: Ticker symbol (str), max number of orders (int) (optional)
-    # Returns (true, bids, asks) or (false, error_message)
+    # Returns (True, bids, asks) or (False, error_message)
     def orderbook(self, symbol, limit=500):
         response = requests.get(self.endpoint + "depth?symbol=" + symbol + "&limit=" + str(limit))
         info = response.json()
@@ -69,21 +69,31 @@ class Broker:
             return (False, response.text)
 
 
-# Tests:
-symbol = "ETHBTC"
-B = Broker()
-print(B.ping())
-print("")
-print(B.get_price(symbol))
-print("")
-print(B.get_price())
-print("")
-print(B.get_avg_price(symbol))
-print("")
-print(B.orderbook(symbol))
-print("")
+    # Get Exchange information
+    # Returns either (True, information (json)) or (False)
+    def exchange_info(self):
+        response = requests.get(self.endpoint + "exchangeInfo")
+        if response.status_code = 200:
+            return (True, response.json())
+        else:
+            return (False)
 
-print(f"  A simple price ticker for {symbol}")
-for i in range(20):
-    print(B.get_price(symbol))
-    time.sleep(1)
+
+# Tests:
+#symbol = "ETHBTC"
+#B = Broker()
+#print(B.ping())
+#print("")
+#print(B.get_price(symbol))
+#print("")
+#print(B.get_price())
+#print("")
+#print(B.get_avg_price(symbol))
+#print("")
+#print(B.orderbook(symbol))
+#print("")
+
+#print(f"  A simple price ticker for {symbol}")
+#for i in range(20):
+#    print(B.get_price(symbol))
+#    time.sleep(1)

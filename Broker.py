@@ -73,7 +73,7 @@ class Broker:
     # Returns either (True, information (json)) or (False)
     def exchange_info(self):
         response = requests.get(self.endpoint + "exchangeInfo")
-        if response.status_code = 200:
+        if response.status_code == 200:
             return (True, response.json())
         else:
             return (False)

@@ -5,20 +5,28 @@
 import requests
 
 class Broker:
-    def __init__(self, endpoint="https://api.binance.com"):
+    def __init__(self, endpoint="https://api.binance.com/api/v3/"):
         self.endpoint = endpoint
 
     # Ping server to test connectivity
     def ping(self):
-        r = requests.get(self.endpoint + "/api/v3/ping")
-        if r.text == "{}":
-            print("Success:", r.status_code, r.text)
+        test = requests.get(self.endpoint + "ping")
+        if test.text == "{}":
+            print("Success:", test.status_code, test.text)
         else:
-            print("Failure:", r.status_code, r.text)
+            print("Failure:", test.status_code, test.text)
 
     # Get current average price for symbol
-    def get_price(self, symbol):
-        pass
+    def get_avg_price(self, symbol):
+        response = requests.get(self.endpoint + "avgPrice?symbol=" + symbol)
+        info = response.json()
+        if response.status_code == 200:
+            price = info["price"]
+            print(price)
+        elif response.status_code == 400:
+            print(info["msg"])
+        else:
+            print(response.status_code, response.text)
 
     # Get orderbook information for symbol
 
@@ -26,3 +34,4 @@ class Broker:
 # Tests:
 B = Broker()
 B.ping()
+B.get_price("ETHBTC")

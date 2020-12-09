@@ -3,77 +3,87 @@
 # The Binance API Docs are available here: https://binance-docs.github.io/apidocs
 
 import requests
+import time
 
 class Broker:
     def __init__(self, endpoint="https://api.binance.com/api/v3/"):
         self.endpoint = endpoint
 
 
-    # Ping server to test connectivity
+    # Ping server to test connectivity.
+    # Returns true if successful, false if unsuccessful
     def ping(self):
-        test = requests.get(self.endpoint + "ping")
-        if test.text == "{}":
-            print("Success:", test.status_code, test.text)
-        else:
-            print("Failure:", test.status_code, test.text)
+        try:
+            test = requests.get(self.endpoint + "ping")
+            if test.text == "{}":
+                return True
+            else:
+                return False
+        except:
+            return False
 
 
     # Get latest price for symbol, if empty symbol, returns prices for all symbols
+    # Argument: Ticker symbol (str) (optional)
+    # Returns (true, price(s)) or (false, error_message)
     def get_price(self, symbol=""):
+        response = 0
 
-        # Protocol for all symbols
         if symbol == "":
             response = requests.get(self.endpoint + "ticker/price")
-            if response.status_code == 200:
-                print(response.json())
-            elif response.status_code == 400:
-                print(response.json()["msg"])
-            else:
-                print(response.status_code, response.text)
-
-        # Protocol for specific symbols
         else:
             response = requests.get(self.endpoint + "ticker/price?symbol=" + symbol)
-            info = response.json()
-            if response.status_code == 200:
-                price = info["price"]
-                print(price)
-            elif response.status_code == 400:
-                print(info["msg"])
-            else:
-                print(response.status_code, response.text)
+
+        if response.status_code == 200:
+            return (True, response.json())
+        elif response.status_code == 400:
+            return (False, response.json()["msg"])
+        else:
+            return (False, response.text)
 
 
     # Get current average price for symbol
+    # Argument: Ticker symbol (str)
+    # Returns (true, price) or (false, error_message)
     def get_avg_price(self, symbol):
         response = requests.get(self.endpoint + "avgPrice?symbol=" + symbol)
-        info = response.json()
         if response.status_code == 200:
-            price = info["price"]
-            print(price)
+            return (True, response.json()["price"])
         elif response.status_code == 400:
-            print(info["msg"])
+            return (False, response.json()["msg"])
         else:
-            print(response.status_code, response.text)
+            return (False, response.text)
 
 
     # Get orderbook information for symbol
+    # Arguments: Ticker symbol (str), max number of orders (int) (optional)
+    # Returns (true, bids, asks) or (false, error_message)
     def orderbook(self, symbol, limit=500):
         response = requests.get(self.endpoint + "depth?symbol=" + symbol + "&limit=" + str(limit))
         info = response.json()
         if response.status_code == 200:
-            print("bids:",info["bids"])
-            print("asks:",info["asks"])
+            return (True, info["bids"], info["asks"])
         elif response.status_code == 400:
-            print(info["msg"])
+            return (False, info["msg"])
         else:
-            print(response.status_code, response.text)
+            return (False, response.text)
 
 
 # Tests:
+symbol = "ETHBTC"
 B = Broker()
-B.ping()
-B.get_price("ETHBTC")
-#B.get_price()
-B.get_avg_price("ETHBTC")
-B.orderbook("ETHBTC")
+print(B.ping())
+print("")
+print(B.get_price(symbol))
+print("")
+print(B.get_price())
+print("")
+print(B.get_avg_price(symbol))
+print("")
+print(B.orderbook(symbol))
+print("")
+
+print(f"  A simple price ticker for {symbol}")
+for i in range(20):
+    print(B.get_price(symbol))
+    time.sleep(1)

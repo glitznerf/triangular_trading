@@ -1,6 +1,7 @@
 # A trading agent spotting arbitrage opportunities
 
 from Broker import Broker
+import time
 
 class Agent:
     def __init__(self, broker):
@@ -46,10 +47,11 @@ class Agent:
     # Calculate effective triangular price
     # ToDo: incorporate fees
     # ToDo: incorporate false broker response
+    # Arguments: prices (json), triangle (tuple)
     # Returns: effective price (float)
-    def eff_price(self, triangle):
+    def eff_price(self, prices, triangle):
         pairs = ["".join(pair) for pair in triangle[1]]
-        prices = [float(self.broker.get_price(pair)[1]["price"]) for pair in pairs]
+        prices = [prices[pair] for pair in pairs]
         directions = []
         for ix, curr in enumerate([self.base, triangle[0][0], triangle[0][1]]):
             directions.append(True if curr == triangle[1][ix][1] else False)
@@ -62,20 +64,48 @@ class Agent:
         return effective
 
 
-    # ToDo: iterate over triangles calculating effective price until arbitrage opportunity is given
-    def opportunity(self):
+    # Get dictionary of ticker prices by symbol
+    # Returns: either (True, prices (dict)) or (False)
+    def clean_prices(self):
+        raw = self.broker.get_price()
+        if raw[0]:
+            prices = {}
+            for entry in raw[1]:
+                prices[entry["symbol"]] = float(entry["price"])
+            return (True, prices)
+        else:
+            return (False)
+
+
+    # Iterate over triangles and calculate effective prices for each, gather trading opportunities
+    # ToDo: presentation, risk factor, profit threshold, liquidity metrics
+    # Returns: either (True, opportunities in descending order (array)) or (False)
+    def opportunities(self):
         assert len(self.triangles) > 0
-        for triangle in self.triangles:
-            effective = self.eff_price(triangle)
-            if effective > 1:
-                print(effective, triangle)
+        prices = self.clean_prices()
+        if prices[0]:
+            opportunities = []
+            for triangle in self.triangles:
+                effective = self.eff_price(prices[1], triangle)
+                if effective > 1:
+                    opportunities.append((effective, triangle))
+            return (True, sorted(opportunities, reverse=True))
+        return (False)
+
+
+    # Present a current opportunity confirmed with order book data
+    # ToDo: get opportunities, calculate immediate execution prices backed by order book
+    def opportunity(self):
+        pass
 
 
 
 # Tests
 B = Broker()
 A = Agent(B)
-A.status()
 A.setup_pairs()
 A.status()
-A.opportunity()
+
+while True:
+    print(A.opportunities()[0])
+    time.sleep(1)

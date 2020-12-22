@@ -9,6 +9,7 @@ class Agent:
         self.base = "EUR"
         self.pairs = []
         self.triangles = []
+        self.fees = broker.get_fees()[1]
 
 
     # Print status of the Agent
@@ -18,6 +19,7 @@ class Agent:
         print("  Broker: OK") if self.broker.ping() else print("  Broker: Not connected")
         print("  Pairs: OK") if len(self.pairs) != 0 else print("  Pairs: Not set up")
         print("  Triangles: OK (" + str(len(self.triangles)) + ")") if len(self.triangles) != 0 else print("  Triangles: Not set up")
+        print("  Fees: OK") if len(self.fees) != 0 else print("  Fees: Not set up")
         print("")
 
 
@@ -45,7 +47,6 @@ class Agent:
 
 
     # Calculate effective triangular price
-    # ToDo: incorporate fees
     # ToDo: incorporate false broker response
     # Arguments: prices (json), triangle (tuple)
     # Returns: effective price (float)
@@ -58,9 +59,9 @@ class Agent:
         effective = 1
         for ix, price in enumerate(prices):
             if directions[ix]:
-                effective = effective *price
+                effective = effective * price - effective*self.fees.get(pairs[ix])[0]
             else:
-                effective = effective / price
+                effective = effective / price - effective*self.fees.get(pairs[ix])[1]
         return effective
 
 
@@ -97,15 +98,3 @@ class Agent:
     # ToDo: get opportunities, calculate immediate execution prices backed by order book
     def opportunity(self):
         pass
-
-
-
-# Tests
-B = Broker()
-A = Agent(B)
-A.setup_pairs()
-A.status()
-
-while True:
-    print(A.opportunities()[0])
-    time.sleep(1)

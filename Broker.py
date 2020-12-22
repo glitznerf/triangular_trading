@@ -4,10 +4,16 @@
 
 import requests
 import time
+import hmac
+import hashlib
+import urllib
 
 class Broker:
-    def __init__(self, endpoint="https://api.binance.com/api/v3/"):
-        self.endpoint = endpoint
+    def __init__(self, url="https://api.binance.com/"):
+        self.endpoint = url + "api/v3/"
+        self.userendpoint = url + "wapi/v3/"
+        self.apikey = ""
+        self.secretkey = ""
 
 
     # Ping server to test connectivity.
@@ -79,21 +85,23 @@ class Broker:
             return (False)
 
 
-# Tests:
-#symbol = "ETHBTC"
-#B = Broker()
-#print(B.ping())
-#print("")
-#print(B.get_price(symbol))
-#print("")
-#print(B.get_price())
-#print("")
-#print(B.get_avg_price(symbol))
-#print("")
-#print(B.orderbook(symbol))
-#print("")
+    # Get fee information
+    # Returns either (True, fees (maker/taker, percent, dict)) or (False)
+    def get_fees(self):
+        params = urllib.parse.urlencode({
+            "signature" : hmac.new(self.secretkey.encode('utf-8'), "".encode("utf-8"), hashlib.sha256).hexdigest(),
+            "timestamp" : int(time.time() * 1000)})
 
-#print(f"  A simple price ticker for {symbol}")
-#for i in range(20):
-#    print(B.get_price(symbol))
-#    time.sleep(1)
+        response = requests.get(self.userendpoint + "tradeFee.html",
+            params = params,
+            headers = {
+                "X-MBX-APIKEY" : self.apikey,
+            })
+
+        if response.status_code == 200:
+            fees = {}
+            for symbol in response.json()["tradeFee"]:
+                fees[symbol["symbol"]] = [symbol["maker"], symbol["taker"]]
+            return (True, fees)
+        else:
+            return (False)

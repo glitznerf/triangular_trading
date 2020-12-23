@@ -62,7 +62,7 @@ class Agent:
                 effective = effective * price - effective*self.fees.get(pairs[ix])[0]
             else:
                 effective = effective / price - effective*self.fees.get(pairs[ix])[1]
-        return effective
+        return effective, directions
 
 
     # Get dictionary of ticker prices by symbol
@@ -80,21 +80,40 @@ class Agent:
 
     # Iterate over triangles and calculate effective prices for each, gather trading opportunities
     # ToDo: presentation, risk factor, profit threshold, liquidity metrics
-    # Returns: either (True, opportunities in descending order (array)) or (False)
+    # Returns: either (True, opportunities in descending order (array), directions of trade (array)) or (False)
     def opportunities(self):
         assert len(self.triangles) > 0
         prices = self.clean_prices()
+        directions = []
         if prices[0]:
             opportunities = []
             for triangle in self.triangles:
-                effective = self.eff_price(prices[1], triangle)
+                effective, directions = self.eff_price(prices[1], triangle)
                 if effective > 1:
                     opportunities.append((effective, triangle))
-            return (True, sorted(opportunities, reverse=True))
+                    directions.append(directions)
+            return (True, sorted(opportunities, reverse=True), directions)
         return (False)
 
 
     # Present a current opportunity confirmed with order book data
+    # ToDo: Make orderbook info way more robust instead of simply taking top of orderbook!!
     # ToDo: get opportunities, calculate immediate execution prices backed by order book
     def opportunity(self):
-        pass
+        opps = self.opportunities()
+        if opps[0]:
+            # For each opportunity (trade idea), get the symbols and respective trade direction
+            # Then get orderbook information, seek potential counterparty
+            for ix, opp in enumerate(opps[1]):
+                symbols = ["".join(opp[1][1][i]) for i in range(3)]
+                directions = opps[2][ix]
+                orderbook_top = []
+                for ix, symbol in enumerate(symbols):
+                    # If want to buy, get top of ask orderbook
+                    if directions[ix]:
+                        self.broker.orderbook(symb)[2][0][0]
+                    # If want to sell, get top of bid orderbook
+                    else:
+                        self.broker.orderbook(symb)[1][0][0]
+        else:
+            return (False)

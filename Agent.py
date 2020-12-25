@@ -48,7 +48,7 @@ class Agent:
 
     # Calculate effective triangular price
     # ToDo: incorporate false broker response
-    # Arguments: prices (json), triangle (tuple)
+    # Arguments: prices (dict), triangle (tuple)
     # Returns: effective price (float)
     def eff_price(self, prices, triangle):
         pairs = ["".join(pair) for pair in triangle[1]]
@@ -59,14 +59,14 @@ class Agent:
         effective = 1
         for ix, price in enumerate(prices):
             if directions[ix]:
-                effective = effective * price - effective*self.fees.get(pairs[ix])[0]
+                effective = effective / price - effective*self.fees.get(pairs[ix])[0]
             else:
-                effective = effective / price - effective*self.fees.get(pairs[ix])[1]
+                effective = effective * price - effective*self.fees.get(pairs[ix])[1]
         return effective, directions
 
 
     # Get dictionary of ticker prices by symbol
-    # Returns: either (True, prices (dict)) or (False)
+    # Returns: either (True, prices (dict)) or (False, False)
     def clean_prices(self):
         raw = self.broker.get_price()
         if raw[0]:
@@ -75,12 +75,12 @@ class Agent:
                 prices[entry["symbol"]] = float(entry["price"])
             return (True, prices)
         else:
-            return (False)
+            return (False, False)
 
 
     # Iterate over triangles and calculate effective prices for each, gather trading opportunities
     # ToDo: presentation, risk factor, profit threshold, liquidity metrics
-    # Returns: either (True, opportunities in descending order (array), directions of trade (array)) or (False)
+    # Returns: either (True, opportunities in descending order (array), directions of trade (array)) or (False, False)
     def opportunities(self):
         assert len(self.triangles) > 0
         prices = self.clean_prices()
@@ -88,12 +88,12 @@ class Agent:
         if prices[0]:
             opportunities = []
             for triangle in self.triangles:
-                effective, directions = self.eff_price(prices[1], triangle)
+                effective, dir = self.eff_price(prices[1], triangle)
                 if effective > 1:
                     opportunities.append((effective, triangle))
-                    directions.append(directions)
+                    directions.append(dir)
             return (True, sorted(opportunities, reverse=True), directions)
-        return (False)
+        return (False, False)
 
 
     # Present a current opportunity confirmed with order book data
@@ -104,16 +104,24 @@ class Agent:
         if opps[0]:
             # For each opportunity (trade idea), get the symbols and respective trade direction
             # Then get orderbook information, seek potential counterparty
-            for ix, opp in enumerate(opps[1]):
+            arbitrage = []
+            for ix, opp in enumerate(opps[1][:5]):
                 symbols = ["".join(opp[1][1][i]) for i in range(3)]
+                prices = {}
                 directions = opps[2][ix]
-                orderbook_top = []
-                for ix, symbol in enumerate(symbols):
+                for ix, symb in enumerate(symbols):
                     # If want to buy, get top of ask orderbook
                     if directions[ix]:
-                        self.broker.orderbook(symb)[2][0][0]
+                        price = float(self.broker.orderbook(symb)[2][0][0])
+                        prices[symb] = price
                     # If want to sell, get top of bid orderbook
                     else:
-                        self.broker.orderbook(symb)[1][0][0]
-        else:
-            return (False)
+                        price = float(self.broker.orderbook(symb)[1][0][0])
+                        prices[symb] = price
+                effective_price, dir = self.eff_price(prices, opp[1])
+                if effective_price > 1:
+                    arbitrage.append([effective_price,opp[1]])
+            if len(arbitrage) > 0:
+                return (True, sorted(arbitrage, reverse=True)[0])
+
+        return (False, False)

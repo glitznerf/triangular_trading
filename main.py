@@ -15,5 +15,11 @@ A.status()
 
 # A simple opportunity ticker
 while True:
-    print(A.opportunities()[1][0][0])
+    opp = A.opportunity()
+    if opp[0]:
+        print("Arbitrage opportunity with base", opp[1][0])
+        print("  Exchange", opp[1][1][1][0], "->", opp[1][1][1][1], "->", opp[1][1][1][2], "\n")
+    else:
+        print(" ")
+    #print(float(B.orderbook("ADAEUR")[1][0][0]))
     time.sleep(1)

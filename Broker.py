@@ -7,13 +7,20 @@ import time
 import hmac
 import hashlib
 import urllib
+import json
+import numpy as np
 
 class Broker:
-    def __init__(self, url="https://api.binance.com/"):
-        self.endpoint = url + "api/v3/"
-        self.userendpoint = url + "wapi/v3/"
+
+    # Initialisation - NOTE: please adjust API-Key and SecretKey
+    def __init__(self):
+        self.url = "https://api.binance.com/"
+        self.endpoint = self.url + "api/v3/"
+        self.userendpoint = self.url + "wapi/v3/"
         self.apikey = ""
         self.secretkey = ""
+        self.symbols = {}
+        self.get_symbols()
 
 
     # Ping server to test connectivity.
@@ -21,10 +28,7 @@ class Broker:
     def ping(self):
         try:
             test = requests.get(self.endpoint + "ping")
-            if test.text == "{}":
-                return True
-            else:
-                return False
+            return True if test.text == "{}" else False
         except:
             return False
 
@@ -46,6 +50,58 @@ class Broker:
             return (False, response.json()["msg"])
         else:
             return (False, response.text)
+
+    # Get best price for symbol, if empty symbol, returns prices for all symbols
+    # Argument: Ticker symbol (str) (optional)
+    # Returns (True, price(s)) or (False, error_message)
+    def get_raw_best_price(self, symbol=""):
+        response = 0
+
+        if symbol == "":
+            response = requests.get(self.endpoint + "ticker/bookTicker")
+        else:
+            response = requests.get(self.endpoint + "ticker/bookTicker?symbol=" + symbol)
+
+        if response.status_code == 200:
+            return (True, response.json())
+        elif response.status_code == 400:
+            return (False, response.json()["msg"])
+        else:
+            return (False, response.text)
+
+    # Get best prices in dictionary form
+    # Returns dictionary of form price[owned_currency][new_currency]
+    # Dictionary entry contains direction, symbol, price and quantity
+    def get_best_prices(self):
+        api_start_time = time.time()*1000
+        raw_best_price = self.get_raw_best_price()[1]
+        api_end_time = time.time()*1000
+        print(f"\tAPI Time: {api_end_time - api_start_time:.2f} ms")
+        parsing_start_time = time.time()*1000
+        price = {}
+        for ticker in raw_best_price:
+            symbol = ticker["symbol"]
+            try:
+                symbol_a, symbol_b = self.symbols[symbol]
+            except KeyError:
+                continue
+            buy = ["buy", symbol, float(ticker["bidPrice"]), float(ticker["bidQty"])]
+            sell = ["sell", symbol, float(ticker["askPrice"]), float(ticker["askQty"])]
+            if buy[2] != 0:
+                try:
+                    price[symbol_b][symbol_a] = buy
+                except KeyError:
+                    price[symbol_b] = {}
+                    price[symbol_b][symbol_a] = buy
+            if sell[2] != 0:
+                try:
+                    price[symbol_a][symbol_b] = sell
+                except KeyError:
+                    price[symbol_a] = {}
+                    price[symbol_a][symbol_b] = sell
+        parsing_end_time = time.time()*1000
+        print(f"\tParsing Time: {parsing_end_time - parsing_start_time:.2f} ms")
+        return price
 
 
     # Get current average price for symbol
@@ -105,3 +161,14 @@ class Broker:
             return (True, fees)
         else:
             return (False)
+
+    # Get all available symbols, excluding discontinued "NGN"s
+    def get_symbols(self):
+        response = requests.get(self.endpoint + "exchangeInfo")
+        info = response.json()
+        for entry in info["symbols"]:
+            symbol = entry["symbol"]
+            symbol_a = entry["baseAsset"]
+            symbol_b = entry["quoteAsset"]
+            if not (symbol_b == "NGN" and not (symbol_a == "BTC" or symbol_a == "USDT")):
+                self.symbols[symbol] = [symbol_a, symbol_b]

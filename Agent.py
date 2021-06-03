@@ -4,66 +4,108 @@ from Broker import Broker
 import time
 
 class Agent:
+
+    # Initialisation, NOTE: Adjust owned base currency and threshold
     def __init__(self, broker):
         self.broker = broker
-        self.base = "EUR"
-        self.pairs = []
-        self.triangles = []
+        self.base = "USDT"
         self.fees = broker.get_fees()[1]
+        self.profit_threshold = 0.0001
+        self.file = "opportunities.csv"
 
 
     # Print status of the Agent
     def status(self):
         print("Agent Status:")
-        print("  Base currency:", self.base)
-        print("  Broker: OK") if self.broker.ping() else print("  Broker: Not connected")
-        print("  Pairs: OK") if len(self.pairs) != 0 else print("  Pairs: Not set up")
-        print("  Triangles: OK (" + str(len(self.triangles)) + ")") if len(self.triangles) != 0 else print("  Triangles: Not set up")
-        print("  Fees: OK") if len(self.fees) != 0 else print("  Fees: Not set up")
-        print("")
+        print(f"\tBase currency: {self.base}")
+        print("\tBroker: OK") if self.broker.ping() else print("\tBroker: Not connected")
+        print("\tFees: OK") if len(self.fees) != 0 else print("\tFees: Not set up")
+        print(f"\tProfit Threshold: {self.profit_threshold}\n")
 
-
-    # Get available currency pairs from broker and set up triangle structures
-    # We set up base_currency -> b -> c -> base_currency
-    # Returns: triangles (array of 3-tuples)
-    def setup_pairs(self):
-        exchange_info = self.broker.exchange_info()
-        if exchange_info[0]:
-            symbols = exchange_info[1]["symbols"]
-            for symbol in symbols:
-                if symbol["status"] == "TRADING":
-                    pair = symbol["baseAsset"], symbol["quoteAsset"]
-                    self.pairs.append(pair)
-            for one in self.pairs:
-                if self.base in one:
-                    b = (one[0] if one[0] != self.base else one[1])
-                    for two in self.pairs:
-                        if b in two and not self.base in two:
-                            c = (two[0] if two[0] != b else two[1])
-                            for three in self.pairs:
-                                if (self.base in three) and (c in three):
-                                    triangle = one, two, three
-                                    self.triangles.append(((b,c),triangle))
-
-
-    # Calculate effective triangular price
-    # ToDo: incorporate false broker response
-    # Arguments: prices (dict), triangle (tuple)
-    # Returns: effective price (float)
-    def eff_price(self, prices, triangle):
-        pairs = ["".join(pair) for pair in triangle[1]]
-        prices = [prices[pair] for pair in pairs]
-        directions = []
-        for ix, curr in enumerate([self.base, triangle[0][0], triangle[0][1]]):
-            directions.append(True if curr == triangle[1][ix][1] else False)
-        effective = 1
-        for ix, price in enumerate(prices):
-            if directions[ix]:
-                effective = effective / price - effective*self.fees.get(pairs[ix])[0]
+    # Calculate the relative outcome of the triangular trade indexed at one
+    # Returns float
+    def triangular_price(self, direction, order_prices, fees):
+        base = 1.0
+        for index, dir in enumerate(direction):
+            if dir == "buy":
+                base = (base * order_prices[index])
             else:
-                effective = effective * price - effective*self.fees.get(pairs[ix])[1]
-        return effective, directions
+                base = base / order_prices[index]
+            base = base - base*fees[index]
+        return base
 
+    # Calculate the maximum triangular trade quantities depending on the minimum
+    # trade quantity of the three trades available.
+    # Returns array of three floats
+    def triangular_quantities(self, order_prices, direction, offered_quantities):
+        a_1 = offered_quantities[0]*order_prices[1] if direction[1] == "buy" else offered_quantities[0]/order_prices[1]
+        b_1 = offered_quantities[1]
+        c_1 = offered_quantities[2]/order_prices[2] if direction[2] == "buy" else offered_quantities[2]*order_prices[2]
+
+        if (a_1 < b_1) and (a_1 < c_1):
+            a_2 = a_1*order_prices[2] if direction[2] == "buy" else a_1/order_prices[2]
+            return [offered_quantities[0], a_1, a_2]
+        elif (b_1 < a_1) and (b_1 < c_1):
+            b_0 = b_1/order_prices[1] if direction[1] == "buy" else b_1*order_prices[1]
+            b_2 = b_1*order_prices[2] if direction[2] == "buy" else b_1/order_prices[2]
+            return [b_0, b_1, b_2]
+        else:
+            c_0 = c_1/order_prices[1] if direction[1] == "buy" else c_1*order_prices[1]
+            return [c_0, c_1, offered_quantities[2]]
+
+
+    # Parse prices from broker for arbitrage opportunities
+    # Prints terminal message specifying exact trade opportunities
+    def find_arbitrage(self):
+        prices = self.broker.get_best_prices()
+        logic_start_time = time.time()*1000
+        A, B, C = self.base, "", ""
+        direction = ["", "", ""]
+        pairs = ["", "", ""]
+        order_prices = [0, 0, 0]
+        fees = [0, 0, 0]
+        offered_quantities = [0, 0, 0]
+        with open(self.file, "a") as file:
+            for i, (B, info) in enumerate(prices[A].items()):
+                direction[0] = info[0]
+                pairs[0] = info[1]
+                order_prices[0] = info[2]
+                ix = 0 if direction[0] == "buy" else 1
+                fees[0] = self.fees[pairs[0]][ix]
+                offered_quantities[0] = info[3]
+                try:
+                    for i2, (C, info2) in enumerate(prices[B].items()):
+                        direction[1] = info2[0]
+                        pairs[1] = info2[1]
+                        order_prices[1] = info2[2]
+                        ix = 0 if direction[1] == "buy" else 1
+                        fees[1] = self.fees[pairs[1]][ix]
+                        offered_quantities[1] = info[3]
+
+                        CA = prices[C][A]
+                        direction[2] = CA[0]
+                        pairs[2] = CA[1]
+                        order_prices[2] = CA[2]
+                        ix = 0 if direction[2] == "buy" else 1
+                        fees[2] = self.fees[pairs[2]][ix]
+                        offered_quantities[2] = CA[3]
+
+                        effective_price = self.triangular_price(direction, order_prices, fees)
+                        if effective_price > 1 + self.profit_threshold:
+                            quantities = self.triangular_quantities(order_prices, direction, offered_quantities)
+                            logic_end_time = time.time()*1000
+                            profit = (effective_price-1.0)*100.0
+                            print(f"\tLogic time: {logic_end_time - logic_start_time:.2f} ms")
+                            message = ""
+                            csv_row = f"{time.time()},{profit},"
+                            for i in range(3):
+                                message += f"{direction[i]} {quantities[i]} of {pairs[i]} for {order_prices[i]}, "
+                                csv_row += f"{pairs[i]},{direction[i]},{quantities[i]},{order_prices[i]},"
+                            print(f"For {profit:.4f}% profit, {message}")
+                            file.write(csv_row + "\n")
+
+                except KeyError:
+                    pass
 
     # Get dictionary of ticker prices by symbol
     # Returns: either (True, prices (dict)) or (False, False)
@@ -76,52 +118,3 @@ class Agent:
             return (True, prices)
         else:
             return (False, False)
-
-
-    # Iterate over triangles and calculate effective prices for each, gather trading opportunities
-    # ToDo: presentation, risk factor, profit threshold, liquidity metrics
-    # Returns: either (True, opportunities in descending order (array), directions of trade (array)) or (False, False)
-    def opportunities(self):
-        assert len(self.triangles) > 0
-        prices = self.clean_prices()
-        directions = []
-        if prices[0]:
-            opportunities = []
-            for triangle in self.triangles:
-                effective, dir = self.eff_price(prices[1], triangle)
-                if effective > 1:
-                    opportunities.append((effective, triangle))
-                    directions.append(dir)
-            return (True, sorted(opportunities, reverse=True), directions)
-        return (False, False)
-
-
-    # Present a current opportunity confirmed with order book data
-    # ToDo: Make orderbook info way more robust instead of simply taking top of orderbook!!
-    # ToDo: get opportunities, calculate immediate execution prices backed by order book
-    def opportunity(self):
-        opps = self.opportunities()
-        if opps[0]:
-            # For each opportunity (trade idea), get the symbols and respective trade direction
-            # Then get orderbook information, seek potential counterparty
-            arbitrage = []
-            for ix, opp in enumerate(opps[1][:5]):
-                symbols = ["".join(opp[1][1][i]) for i in range(3)]
-                prices = {}
-                directions = opps[2][ix]
-                for ix, symb in enumerate(symbols):
-                    # If want to buy, get top of ask orderbook
-                    if directions[ix]:
-                        price = float(self.broker.orderbook(symb)[2][0][0])
-                        prices[symb] = price
-                    # If want to sell, get top of bid orderbook
-                    else:
-                        price = float(self.broker.orderbook(symb)[1][0][0])
-                        prices[symb] = price
-                effective_price, dir = self.eff_price(prices, opp[1])
-                if effective_price > 1:
-                    arbitrage.append([effective_price,opp[1]])
-            if len(arbitrage) > 0:
-                return (True, sorted(arbitrage, reverse=True)[0])
-
-        return (False, False)

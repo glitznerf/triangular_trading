@@ -11,6 +11,7 @@ class Agent:
         self.base = "USDT"
         self.fees = broker.get_fees()[1]
         self.profit_threshold = 0.0001
+        self.file = "opportunities.csv"
 
 
     # Print status of the Agent
@@ -64,42 +65,47 @@ class Agent:
         order_prices = [0, 0, 0]
         fees = [0, 0, 0]
         offered_quantities = [0, 0, 0]
-        for i, (B, info) in enumerate(prices[A].items()):
-            direction[0] = info[0]
-            pairs[0] = info[1]
-            order_prices[0] = info[2]
-            ix = 0 if direction[0] == "buy" else 1
-            fees[0] = self.fees[pairs[0]][ix]
-            offered_quantities[0] = info[3]
-            try:
-                for i2, (C, info2) in enumerate(prices[B].items()):
-                    direction[1] = info2[0]
-                    pairs[1] = info2[1]
-                    order_prices[1] = info2[2]
-                    ix = 0 if direction[1] == "buy" else 1
-                    fees[1] = self.fees[pairs[1]][ix]
-                    offered_quantities[1] = info[3]
+        with open(self.file, "a") as file:
+            for i, (B, info) in enumerate(prices[A].items()):
+                direction[0] = info[0]
+                pairs[0] = info[1]
+                order_prices[0] = info[2]
+                ix = 0 if direction[0] == "buy" else 1
+                fees[0] = self.fees[pairs[0]][ix]
+                offered_quantities[0] = info[3]
+                try:
+                    for i2, (C, info2) in enumerate(prices[B].items()):
+                        direction[1] = info2[0]
+                        pairs[1] = info2[1]
+                        order_prices[1] = info2[2]
+                        ix = 0 if direction[1] == "buy" else 1
+                        fees[1] = self.fees[pairs[1]][ix]
+                        offered_quantities[1] = info[3]
 
-                    CA = prices[C][A]
-                    direction[2] = CA[0]
-                    pairs[2] = CA[1]
-                    order_prices[2] = CA[2]
-                    ix = 0 if direction[2] == "buy" else 1
-                    fees[2] = self.fees[pairs[2]][ix]
-                    offered_quantities[2] = CA[3]
+                        CA = prices[C][A]
+                        direction[2] = CA[0]
+                        pairs[2] = CA[1]
+                        order_prices[2] = CA[2]
+                        ix = 0 if direction[2] == "buy" else 1
+                        fees[2] = self.fees[pairs[2]][ix]
+                        offered_quantities[2] = CA[3]
 
-                    effective_price = self.triangular_price(direction, order_prices, fees)
-                    if effective_price > 1 + self.profit_threshold:
-                        quantities = self.triangular_quantities(order_prices, direction, offered_quantities)
-                        logic_end_time = time.time()*1000
-                        print(f"\tLogic time: {logic_end_time - logic_start_time:.2f} ms")
-                        message = ""
-                        for i in range(3):
-                            message += f"{direction[i]} {quantities[i]} of {pairs[i]} for {order_prices[i]}, "
-                        print(f"For {(effective_price-1.0)*100.0:.4f}% profit, {message}")
+                        effective_price = self.triangular_price(direction, order_prices, fees)
+                        if effective_price > 1 + self.profit_threshold:
+                            quantities = self.triangular_quantities(order_prices, direction, offered_quantities)
+                            logic_end_time = time.time()*1000
+                            profit = (effective_price-1.0)*100.0
+                            print(f"\tLogic time: {logic_end_time - logic_start_time:.2f} ms")
+                            message = ""
+                            csv_row = f"{time.time()},{profit},"
+                            for i in range(3):
+                                message += f"{direction[i]} {quantities[i]} of {pairs[i]} for {order_prices[i]}, "
+                                csv_row += f"{pairs[i]},{direction[i]},{quantities[i]},{order_prices[i]},"
+                            print(f"For {profit:.4f}% profit, {message}")
+                            file.write(csv_row + "\n")
 
-            except KeyError:
-                pass
+                except KeyError:
+                    pass
 
     # Get dictionary of ticker prices by symbol
     # Returns: either (True, prices (dict)) or (False, False)

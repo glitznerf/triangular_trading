@@ -13,4 +13,4 @@ A.status()
 # Simple arbitrage opportunity tracker
 while True:
     A.find_arbitrage()
-    time.sleep(1.5)
+    time.sleep(1)

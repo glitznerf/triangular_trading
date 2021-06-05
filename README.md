@@ -24,7 +24,8 @@ The Agent implements the strategy, parsing the information passed on from the Br
 *main.py* executes the trade logic and incorporates a delay to ensure compliant API behaviour.
 
 ## Results
-After running the algorithm for one hour, the exemplary results can be summarized as follows:  
+After running the algorithm for one hour, using USDT as the only base asset, only allowing exactly three trades per opportunity and restricting API interaction to one per 1.5 seconds, the exemplary results can be summarized as follows:  
+
 ![UML Diagram](img/hour_experiment.JPG)  
 - **Number of Opportunities:** 38  
 - **Relative Average Opportunity Profit:** 0.0878%  
@@ -55,4 +56,5 @@ Therefore, the next steps are
 3. Develop risk management system
 4. Test strategy live in spot markets
 5. Create Dashboard for overview and results
-6. Extend opportunity parsing to more than three trades (multi-angular over triangular)
+6. Extend opportunity parsing to more than three trades (k-angular over triangular)
+7. Extend opportunity parsing to more than one base asset
